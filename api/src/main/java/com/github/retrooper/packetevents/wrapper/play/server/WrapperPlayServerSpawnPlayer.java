@@ -121,7 +121,11 @@ public class WrapperPlayServerSpawnPlayer extends PacketWrapper<WrapperPlayServe
         writeByte((byte) (yaw * ROTATION_DIVISOR));
         writeByte((byte) (pitch * ROTATION_DIVISOR));
         if (!v1_9) {
-            writeShort(item.getId(serverVersion.toClientVersion()));
+            if (item == null) {
+                writeShort(ItemTypes.AIR.getId(serverVersion.toClientVersion()));
+            } else {
+                writeShort(item.getId(serverVersion.toClientVersion()));
+            }
         }
         if (serverVersion.isOlderThan(ServerVersion.V_1_15)) {
             writeEntityMetadata(entityMetadata);
