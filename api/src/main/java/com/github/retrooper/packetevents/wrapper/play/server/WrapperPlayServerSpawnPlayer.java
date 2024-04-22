@@ -127,9 +127,7 @@ public class WrapperPlayServerSpawnPlayer extends PacketWrapper<WrapperPlayServe
                 writeShort(item.getId(serverVersion.toClientVersion()));
             }
         }
-        if (serverVersion.isOlderThan(ServerVersion.V_1_15)) {
-            writeEntityMetadata(entityMetadata);
-        }
+        writeEntityMetadata(entityMetadata);
     }
 
     @Override
