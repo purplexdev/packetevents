@@ -44,7 +44,7 @@ public class WrapperPlayServerEffect extends PacketWrapper<WrapperPlayServerEffe
 
     @Override
     public void read() {
-        event = readVarInt();
+        event = readInt();
         if (serverVersion == ServerVersion.V_1_7_10) {
             int x = readInt();
             int y = readInt();
@@ -59,7 +59,7 @@ public class WrapperPlayServerEffect extends PacketWrapper<WrapperPlayServerEffe
 
     @Override
     public void write() {
-        writeVarInt(event);
+        writeInt(event);
         if (serverVersion == ServerVersion.V_1_7_10) {
             writeInt(blockPosition.x);
             writeInt(blockPosition.y);
