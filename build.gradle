@@ -21,10 +21,10 @@ subprojects {
     version = '2.2.1-CUSTOM'
     project.ext.nettyVersion = '4.1.72.Final'
     project.ext.adventureVersion = '4.16.0'
-    project.ext.adventureDependencies=["net.kyori:adventure-api:${adventureVersion}",
-                                       "net.kyori:adventure-text-serializer-gson:${adventureVersion}",
-                                       "net.kyori:adventure-text-serializer-legacy:${adventureVersion}",
-                                       "net.kyori:adventure-nbt:${adventureVersion}"]
+    project.ext.adventureDependencies = ["net.kyori:adventure-api:${adventureVersion}",
+                                         "net.kyori:adventure-text-serializer-gson:${adventureVersion}",
+                                         "net.kyori:adventure-text-serializer-legacy:${adventureVersion}",
+                                         "net.kyori:adventure-nbt:${adventureVersion}"]
 
     java.sourceCompatibility = JavaVersion.VERSION_17
     java.targetCompatibility = JavaVersion.VERSION_1_8
@@ -48,11 +48,11 @@ subprojects {
             dependsOn(shadowJar)
         }
 
-        task sourceJar(type: Jar) {
+        tasks.register('sourceJar', Jar) {
             from sourceSets.main.allJava
         }
 
-        withType(JavaCompile) {
+        withType(JavaCompile).configureEach {
             options.encoding = 'UTF-8'
             // Set the release flag. This configures what version bytecode the compiler will emit, as well as what JDK APIs are usable.
             // See https://openjdk.java.net/jeps/247 for more information.
@@ -71,8 +71,8 @@ subprojects {
     publishing {
         publications {
             mavenJava(MavenPublication) {
-                groupId = "com.github.retrooper.packetevents"
-                artifactId = project.name
+                groupId = "com.github.retrooper"
+                artifactId = "packetevents-" + project.name
                 version = project.version
 
                 from components.java
@@ -81,26 +81,16 @@ subprojects {
 
         repositories {
             maven {
-                def snapshotUrl = "https://repo.codemc.io/repository/maven-snapshots/"
-                def releaseUrl = "https://repo.codemc.io/repository/maven-releases/"
-
-                // Check which URL should be used
-                url = project.version.endsWith("SNAPSHOT") ? snapshotUrl : releaseUrl
-
-                def mavenUsername = System.getenv("retrooper_username") ? System.getenv("retrooper_username") : null
-                def mavenPassword = System.getenv("retrooper_password") ? System.getenv("retrooper_password") : null
-
-                if(mavenUsername != null && mavenPassword != null) {
-                    credentials {
-                        username = mavenUsername
-                        password = mavenPassword
-                    }
+                url = "https://repo.akiramc.fr/base/"
+                credentials {
+                    username = findProperty("akiraBaseUsername") ?: ""
+                    password = findProperty("akiraBasePassword") ?: ""
                 }
             }
         }
     }
     //So that SNAPSHOT is always the latest SNAPSHOT
-    configurations.all {
+    configurations.configureEach {
         resolutionStrategy.cacheDynamicVersionsFor 0, 'seconds'
     }
 }

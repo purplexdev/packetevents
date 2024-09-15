@@ -2,7 +2,7 @@
 
 [![](https://img.shields.io/badge/License-GPLv3-yellow.svg)](https://github.com/retrooper/packetevents/blob/2.0/LICENSE) [![](https://github.com/retrooper/packetevents/actions/workflows/build.yml/badge.svg)](https://github.com/retrooper/packetevents/actions) [![Discord](https://img.shields.io/badge/Discord-%235865F2.svg?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/prqzNg9tRU)
 
-PacketEvents is a fast and efficient multi-platform packet processing library. Our packet wrappers are easy to use with multi-version support. With our API you can write code that runs on Spigot, BungeeCord, Velocity, and Fabric! Switch to PacketEvents today by joining \
+PacketEvents is a fast and efficient multi-platform packet processing library. Our packet wrappers are easy to use with multi-version support. With our API you can write code that runs on Spigot, Velocity, and Fabric! Switch to PacketEvents today by joining \
 our [Discord Server](https://discord.me/packetevents) for help.
 
 ### Links
