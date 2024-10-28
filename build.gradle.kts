@@ -1,5 +1,9 @@
 import java.io.ByteArrayOutputStream
 
+plugins {
+    `maven-publish`
+}
+
 // TODO UPDATE
 val fullVersion = "2.6.0"
 val snapshot = true
