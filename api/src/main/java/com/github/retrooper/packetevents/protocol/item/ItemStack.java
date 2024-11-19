@@ -517,7 +517,7 @@ public class ItemStack {
     }
 
     public boolean isEmpty() {
-        return type == null || type == ItemTypes.AIR || amount <= 0;
+        return type == null || type == ItemTypes.AIR;
     }
 
     public static Builder builder() {
