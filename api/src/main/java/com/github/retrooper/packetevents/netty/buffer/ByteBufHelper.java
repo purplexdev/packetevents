@@ -19,6 +19,7 @@
 package com.github.retrooper.packetevents.netty.buffer;
 
 import com.github.retrooper.packetevents.PacketEvents;
+import com.github.retrooper.packetevents.protocol.player.ClientVersion;
 
 import java.nio.charset.Charset;
 
@@ -254,14 +255,28 @@ public class ByteBufHelper {
         return value;
     }
 
-    public static void writeVarInt(Object buffer, int value) {
-        while (true) {
-            if ((value & ~0x7F) == 0) {
-                writeByte(buffer, value);
-                return;
-            }
-            writeByte(buffer, (value & 0x7F) | 0x80);
-            value >>>= 7;
+    public static void writeVarInt(Object buf, int i) {
+        if ((i & (0xFFFFFFFF << 7)) == 0) {
+            // 1 byte case
+            writeByte(buf, i);
+        } else if ((i & (0xFFFFFFFF << 14)) == 0) {
+            // 2 byte case
+            int w = (i & 0x7F | 0x80) << 8 | (i >>> 7);
+            writeShort(buf, w);
+        } else if ((i & (0xFFFFFFFF << 21)) == 0) {
+            // 3 byte case
+            int w = ((i & 0x7F | 0x80) << 16) | ((i >>> 7 & 0x7F | 0x80) << 8) | (i >>> 14);
+            writeMedium(buf, w);
+        } else if ((i & (0xFFFFFFFF << 28)) == 0) {
+            // 4 byte case
+            int w = ((i & 0x7F | 0x80) << 24) | ((i >>> 7 & 0x7F | 0x80) << 16) | ((i >>> 14 & 0x7F | 0x80) << 8) | (i >>> 21);
+            writeInt(buf, w);
+        } else {
+            // 5 byte case (the max size for a VarInt)
+            // Write the first 4 bytes as an int
+            int w = ((i & 0x7F | 0x80) << 24) | ((i >>> 7 & 0x7F | 0x80) << 16) | ((i >>> 14 & 0x7F | 0x80) << 8) | (i >>> 21 & 0x7F | 0x80);
+            writeInt(buf, w); // Write the first 4 bytes
+            writeByte(buf, i >>> 28); // Write the remaining 5th byte
         }
     }
 

@@ -102,6 +102,7 @@ public enum ServerVersion {
     //TODO Optimize
     @Deprecated
     public static ServerVersion getById(int protocolVersion) {
+        if (protocolVersion == ClientVersion.V_1_9_1.getProtocolVersion()) return ServerVersion.V_1_9;
         for (ServerVersion version : VALUES) {
             if (version.protocolVersion == protocolVersion) {
                 return version;
