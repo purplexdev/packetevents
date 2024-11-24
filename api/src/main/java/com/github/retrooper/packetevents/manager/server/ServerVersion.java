@@ -34,7 +34,7 @@ public enum ServerVersion {
     //TODO Rename to MinecraftVersion?
     V_1_7_10(5),
     V_1_8(47), V_1_8_3(47), V_1_8_8(47),
-    V_1_9(107), V_1_9_2(109), V_1_9_4(110),
+    V_1_9(107), V_1_9_1(108), V_1_9_2(109), V_1_9_4(110),
     //1.10 and 1.10.1 are redundant
     V_1_10(210), V_1_10_1(210), V_1_10_2(210),
     V_1_11(315), V_1_11_2(316),
@@ -102,7 +102,6 @@ public enum ServerVersion {
     //TODO Optimize
     @Deprecated
     public static ServerVersion getById(int protocolVersion) {
-        if (protocolVersion == ClientVersion.V_1_9_1.getProtocolVersion()) return ServerVersion.V_1_9;
         for (ServerVersion version : VALUES) {
             if (version.protocolVersion == protocolVersion) {
                 return version;
