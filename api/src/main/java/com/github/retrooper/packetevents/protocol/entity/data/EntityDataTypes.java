@@ -18,7 +18,6 @@
 
 package com.github.retrooper.packetevents.protocol.entity.data;
 
-import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import com.github.retrooper.packetevents.protocol.entity.armadillo.ArmadilloState;
 import com.github.retrooper.packetevents.protocol.entity.pose.EntityPose;
@@ -29,105 +28,112 @@ import com.github.retrooper.packetevents.protocol.nbt.NBTCompound;
 import com.github.retrooper.packetevents.protocol.particle.Particle;
 import com.github.retrooper.packetevents.protocol.player.ClientVersion;
 import com.github.retrooper.packetevents.protocol.world.BlockFace;
+import com.github.retrooper.packetevents.protocol.world.Direction;
 import com.github.retrooper.packetevents.protocol.world.WorldBlockPosition;
 import com.github.retrooper.packetevents.resources.ResourceLocation;
 import com.github.retrooper.packetevents.util.Quaternion4f;
 import com.github.retrooper.packetevents.util.Vector3f;
 import com.github.retrooper.packetevents.util.Vector3i;
-import com.github.retrooper.packetevents.util.mappings.TypesBuilder;
-import com.github.retrooper.packetevents.util.mappings.TypesBuilderData;
+import com.github.retrooper.packetevents.util.mappings.VersionedRegistry;
 import com.github.retrooper.packetevents.wrapper.PacketWrapper;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer;
+import org.jetbrains.annotations.ApiStatus;
+import org.jetbrains.annotations.Nullable;
 
-import java.util.*;
-import java.util.function.BiConsumer;
-import java.util.function.Function;
+import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
-public class EntityDataTypes {
-    //1.7 -> 1.18 block_position is just 3 ints, not serialized with a long
-    //short was removed in 1.9+
-    //boolean was added in 1.9
+public final class EntityDataTypes {
+
     //nbt was added in 1.12
 
-    private static final Map<String, EntityDataType<?>> ENTITY_DATA_TYPE_MAP = new HashMap<>();
-    private static final Map<Byte, Map<Integer, EntityDataType<?>>> ENTITY_DATA_TYPE_ID_MAP = new HashMap<>();
-    protected static final TypesBuilder TYPES_BUILDER = new TypesBuilder("entity/entity_data_type_mappings");
+    // there is no proper mojang registry for this yet, the registry name is just a guess
+    private static final VersionedRegistry<IEntityDataType<?>> REGISTRY = new VersionedRegistry<>(
+            "entity_data_serializer", "entity/entity_data_type_mappings");
 
-    public static final EntityDataType<Byte> BYTE = define("byte", PacketWrapper::readByte, PacketWrapper::writeByte);
+    public static final IEntityDataType<Byte> BYTE_TYPE = define("byte",
+            PacketWrapper::readByte, PacketWrapper::writeByte);
+    public static final IEntityDataType<Integer> INT_TYPE = define("int",
+            EntityDataTypes::readVersionedVarInt, EntityDataTypes::writeVersionedVarInt);
+    /**
+     * Added with 1.19.3
+     */
+    public static final IEntityDataType<Long> LONG_TYPE = define("int",
+            PacketWrapper::readVarLong, PacketWrapper::writeVarLong);
+    public static final IEntityDataType<Float> FLOAT_TYPE = define("float",
+            PacketWrapper::readFloat, PacketWrapper::writeFloat);
+    public static final IEntityDataType<String> STRING_TYPE = define("string",
+            PacketWrapper::readString, PacketWrapper::writeString);
+    public static final IEntityDataType<Component> COMPONENT_TYPE = define("component",
+            PacketWrapper::readComponent, PacketWrapper::writeComponent);
+    public static final IEntityDataType<Optional<Component>> OPTIONAL_COMPONENT_TYPE = define("optional_component",
+            EntityDataTypes::readOptionalComponent, EntityDataTypes::writeOptionalComponent);
+    public static final IEntityDataType<ItemStack> ITEM_STACK_TYPE = define("item_stack",
+            PacketWrapper::readItemStack, PacketWrapper::writeItemStack);
+    /**
+     * Added with 1.9
+     */
+    public static final IEntityDataType<Boolean> BOOLEAN_TYPE = define("boolean",
+            PacketWrapper::readBoolean, PacketWrapper::writeBoolean);
+    public static final IEntityDataType<Vector3f> ROTATIONS_TYPE = define("rotations",
+            Vector3f::read, Vector3f::write);
+    public static final IEntityDataType<Vector3i> BLOCK_POS_TYPE = define("block_pos",
+            EntityDataTypes::readVersionedBlockPosition, EntityDataTypes::writeVersionedBlockPosition);
+    public static final IEntityDataType<Optional<Vector3i>> OPTIONAL_BLOCK_POS_TYPE = define("optional_block_pos",
+            EntityDataTypes::readOptionalVersionedBlockPosition, EntityDataTypes::writeOptionalVersionedBlockPosition);
+    public static final IEntityDataType<BlockFace> DIRECTION_TYPE = define("direction",
+            wrapper -> BlockFace.getBlockFaceByValue(wrapper.readVarInt()), PacketWrapper::writeEnum);
+    public static final IEntityDataType<Optional<UUID>> OPTIONAL_UUID_TYPE = define("optional_uuid") // TODO continue
 
-    public static final EntityDataType<Short> SHORT = define("short", PacketWrapper::readShort, PacketWrapper::writeShort);
+    /**
+     * Removed in 1.9
+     */
+    @ApiStatus.Obsolete
+    public static final IEntityDataType<Short> SHORT_TYPE = define("short", PacketWrapper::readShort, PacketWrapper::writeShort);
 
-    public static final EntityDataType<Integer> INT = define("int", wrapper -> {
-        if (wrapper.getServerVersion().isNewerThanOrEquals(ServerVersion.V_1_9)) {
-            return wrapper.readVarInt();
-        } else {
-            return wrapper.readInt();
-        }
-    }, (wrapper, value) -> {
-        if (wrapper.getServerVersion().isNewerThanOrEquals(ServerVersion.V_1_9)) {
-            wrapper.writeVarInt(value);
-        } else {
-            wrapper.writeInt(value);
-        }
-    });
-
-    public static final EntityDataType<Long> LONG = define("long", PacketWrapper::readVarLong, PacketWrapper::writeVarLong);
-
-    public static final EntityDataType<Float> FLOAT = define("float", PacketWrapper::readFloat, PacketWrapper::writeFloat);
-
-    public static final EntityDataType<String> STRING = define("string", PacketWrapper::readString, PacketWrapper::writeString);
-
+    private static final GsonComponentSerializer GSON_SERIALIZER = GsonComponentSerializer.gson();
     @Deprecated
-    public static final EntityDataType<String> COMPONENT = define("component", PacketWrapper::readComponentJSON, PacketWrapper::writeComponentJSON);
-    public static final EntityDataType<Component> ADV_COMPONENT = define("component", PacketWrapper::readComponent, PacketWrapper::writeComponent);
-
+    public static final EntityDataType<Byte> BYTE = BYTE_TYPE.asLegacy();
     @Deprecated
-    public static final EntityDataType<Optional<String>> OPTIONAL_COMPONENT = define("optional_component", readOptionalComponentJSONDeserializer(), writeOptionalComponentJSONSerializer());
-    public static final EntityDataType<Optional<Component>> OPTIONAL_ADV_COMPONENT = define("optional_component", readOptionalComponentDeserializer(), writeOptionalComponentSerializer());
-
-    public static final EntityDataType<ItemStack> ITEMSTACK = define("itemstack", PacketWrapper::readItemStack, PacketWrapper::writeItemStack);
-
-    public static final EntityDataType<Optional<ItemStack>> OPTIONAL_ITEMSTACK = define("optional_itemstack",
-            (PacketWrapper<?> wrapper) -> Optional.of(wrapper.readItemStack()),
-            (PacketWrapper<?> wrapper, Optional<ItemStack> value) -> wrapper.writeItemStack(value.orElse(null)));
-
-    public static final EntityDataType<Boolean> BOOLEAN = define("boolean", PacketWrapper::readBoolean, PacketWrapper::writeBoolean);
-
-    public static final EntityDataType<Vector3f> ROTATION = define("rotation",
-            (PacketWrapper<?> wrapper) -> new Vector3f(wrapper.readFloat(), wrapper.readFloat(), wrapper.readFloat()),
-            (PacketWrapper<?> wrapper, Vector3f value) -> {
-                wrapper.writeFloat(value.x);
-                wrapper.writeFloat(value.y);
-                wrapper.writeFloat(value.z);
-            });
-
-    public static final EntityDataType<Vector3i> BLOCK_POSITION = define("block_position", (PacketWrapper<?> wrapper) -> {
-        if (wrapper.getServerVersion().isNewerThanOrEquals(ServerVersion.V_1_9)) {
-            return wrapper.readBlockPosition();
-        } else {
-            int x = wrapper.readInt();
-            int y = wrapper.readInt();
-            int z = wrapper.readInt();
-            return new Vector3i(x, y, z);
-        }
-    }, (wrapper, blockPosition) -> {
-        if (wrapper.getServerVersion().isNewerThanOrEquals(ServerVersion.V_1_9)) {
-            wrapper.writeBlockPosition(blockPosition);
-        } else {
-            wrapper.writeInt(blockPosition.getX());
-            wrapper.writeInt(blockPosition.getY());
-            wrapper.writeInt(blockPosition.getZ());
-        }
-    });
-
-    public static final EntityDataType<Optional<Vector3i>> OPTIONAL_BLOCK_POSITION = define("optional_block_position",
-            readOptionalBlockPositionDeserializer(), writeOptionalBlockPositionSerializer());
-
-    public static final EntityDataType<BlockFace> BLOCK_FACE = define("block_face", (PacketWrapper<?> wrapper) -> {
-                int id = wrapper.readVarInt();
-                return BlockFace.getBlockFaceByValue(id);
-            },
-            (PacketWrapper<?> wrapper, BlockFace value) -> wrapper.writeVarInt(value.getFaceValue()));
+    public static final EntityDataType<Integer> INT = INT_TYPE.asLegacy();
+    @Deprecated
+    public static final EntityDataType<Short> SHORT = SHORT_TYPE.asLegacy();
+    @Deprecated
+    public static final EntityDataType<Long> LONG = LONG_TYPE.asLegacy();
+    @Deprecated
+    public static final EntityDataType<Float> FLOAT = FLOAT_TYPE.asLegacy();
+    @Deprecated
+    public static final EntityDataType<String> STRING = STRING_TYPE.asLegacy();
+    @Deprecated
+    public static final EntityDataType<String> COMPONENT = COMPONENT_TYPE.map(
+            GSON_SERIALIZER::serialize, GSON_SERIALIZER::deserialize).asLegacy();
+    @Deprecated
+    public static final EntityDataType<Component> ADV_COMPONENT = COMPONENT_TYPE.asLegacy();
+    @Deprecated
+    public static final EntityDataType<Optional<String>> OPTIONAL_COMPONENT = OPTIONAL_COMPONENT_TYPE.map(
+            comp -> comp.map(GSON_SERIALIZER::serialize),
+            string -> string.map(GSON_SERIALIZER::deserialize)).asLegacy();
+    @Deprecated
+    public static final EntityDataType<Optional<Component>> OPTIONAL_ADV_COMPONENT = OPTIONAL_COMPONENT_TYPE.asLegacy();
+    @Deprecated
+    public static final EntityDataType<ItemStack> ITEMSTACK = ITEM_STACK_TYPE.asLegacy();
+    @Deprecated
+    public static final EntityDataType<Optional<ItemStack>> OPTIONAL_ITEMSTACK = ITEM_STACK_TYPE.map(
+            Optional::of, opt -> opt.orElse(ItemStack.EMPTY)).asLegacy();
+    @Deprecated
+    public static final EntityDataType<Boolean> BOOLEAN = BOOLEAN_TYPE.asLegacy();
+    @Deprecated
+    public static final EntityDataType<Vector3f> ROTATION = ROTATIONS_TYPE.asLegacy();
+    @Deprecated
+    public static final EntityDataType<Vector3i> BLOCK_POSITION = BLOCK_POS_TYPE.asLegacy();
+    @Deprecated
+    public static final EntityDataType<Optional<Vector3i>> OPTIONAL_BLOCK_POSITION = OPTIONAL_BLOCK_POS_TYPE.asLegacy();
+    @Deprecated
+    public static final EntityDataType<BlockFace> BLOCK_FACE = DIRECTION_TYPE.asLegacy();
 
     public static final EntityDataType<Optional<UUID>> OPTIONAL_UUID = define("optional_uuid",
             (PacketWrapper<?> wrapper) -> Optional.ofNullable(wrapper.readOptional(PacketWrapper::readUUID)),
@@ -135,9 +141,9 @@ public class EntityDataTypes {
                     wrapper.writeOptional(value.orElse(null), PacketWrapper::writeUUID));
 
     public static final EntityDataType<Integer> BLOCK_STATE = define("block_state",
-            readIntDeserializer(), writeIntSerializer());
+            readVersionedVarInt(), buildVarIntWriter());
 
-    public static final EntityDataType<Integer> OPTIONAL_BLOCK_STATE = define("optional_block_state", readIntDeserializer(), writeIntSerializer());
+    public static final EntityDataType<Integer> OPTIONAL_BLOCK_STATE = define("optional_block_state", readVersionedVarInt(), buildVarIntWriter());
 
     public static final EntityDataType<NBTCompound> NBT = define("nbt", PacketWrapper::readNBT, PacketWrapper::writeNBT);
 
@@ -157,9 +163,9 @@ public class EntityDataTypes {
         return EntityPose.getById(wrapper.getServerVersion().toClientVersion(), id);
     }, (PacketWrapper<?> wrapper, EntityPose value) -> wrapper.writeVarInt(value.getId(wrapper.getServerVersion().toClientVersion())));
 
-    public static final EntityDataType<Integer> CAT_VARIANT = define("cat_variant_type", readIntDeserializer(), writeIntSerializer());
+    public static final EntityDataType<Integer> CAT_VARIANT = define("cat_variant_type", readVersionedVarInt(), buildVarIntWriter());
 
-    public static final EntityDataType<Integer> FROG_VARIANT = define("frog_variant_type", readIntDeserializer(), writeIntSerializer());
+    public static final EntityDataType<Integer> FROG_VARIANT = define("frog_variant_type", readVersionedVarInt(), buildVarIntWriter());
 
     public static final EntityDataType<Optional<WorldBlockPosition>> OPTIONAL_GLOBAL_POSITION = define("optional_global_position",
             (PacketWrapper<?> wrapper) -> Optional.ofNullable(wrapper.readOptional(w -> new WorldBlockPosition(new ResourceLocation(w.readString(32767)), w.readBlockPosition()))),
@@ -168,7 +174,7 @@ public class EntityDataTypes {
                 w.writeBlockPosition(globalPos.getBlockPosition());
             }));
 
-    public static final EntityDataType<Integer> PAINTING_VARIANT_TYPE = define("painting_variant_type", readIntDeserializer(), writeIntSerializer());
+    public static final EntityDataType<Integer> PAINTING_VARIANT_TYPE = define("painting_variant_type", readVersionedVarInt(), buildVarIntWriter());
 
     public static final EntityDataType<SnifferState> SNIFFER_STATE = define("sniffer_state", (PacketWrapper<?> wrapper) -> {
         int id = wrapper.readVarInt();
@@ -204,173 +210,129 @@ public class EntityDataTypes {
     );
 
     public static final EntityDataType<Integer> WOLF_VARIANT =
-            define("wolf_variant_type", readIntDeserializer(), writeIntSerializer());
+            define("wolf_variant_type", readVersionedVarInt(), buildVarIntWriter());
+
+    @Deprecated
+    private static final List<EntityDataType<?>> LEGACY_ENTRIES = REGISTRY.getEntries().stream()
+            .map(IEntityDataType::asLegacy).collect(Collectors.toUnmodifiableList());
+
+    public static VersionedRegistry<IEntityDataType<?>> getRegistry() {
+        return REGISTRY;
+    }
 
     /**
      * Returns an immutable view of the entity-data types.
+     *
      * @return Entity-Data Types
      */
+    @Deprecated
     public static Collection<EntityDataType<?>> values() {
-        return Collections.unmodifiableCollection(ENTITY_DATA_TYPE_MAP.values());
-    }
-
-    public static EntityDataType<?> getById(ClientVersion version, int id) {
-        int index = TYPES_BUILDER.getDataIndex(version);
-        Map<Integer, EntityDataType<?>> typeIdMap = ENTITY_DATA_TYPE_ID_MAP.get((byte) index);
-        return typeIdMap.get(id);
-    }
-
-    public static EntityDataType<?> getByName(String name) {
-        return ENTITY_DATA_TYPE_MAP.get(name);
-    }
-
-    public static <T> EntityDataType<T> define(String name, Function<PacketWrapper<?>, T> deserializer, BiConsumer<PacketWrapper<?>, T> serializer) {
-        TypesBuilderData data = TYPES_BUILDER.define(name);
-        EntityDataType<T> type = new EntityDataType<>(name, data.getData(), deserializer,
-                (BiConsumer<PacketWrapper<?>, Object>) serializer);
-        ENTITY_DATA_TYPE_MAP.put(type.getName(), type);
-        for (ClientVersion version : TYPES_BUILDER.getVersions()) {
-            int index = TYPES_BUILDER.getDataIndex(version);
-            if (index == -1) continue;
-            Map<Integer, EntityDataType<?>> typeIdMap = ENTITY_DATA_TYPE_ID_MAP
-                    .computeIfAbsent((byte) index, k -> new HashMap<>());
-            typeIdMap.put(type.getId(version), type);
-        }
-        return type;
-    }
-
-    private static <T> Function<PacketWrapper<?>, T> readIntDeserializer() {
-        if (PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_1_9)) {
-            return (PacketWrapper<?> wrapper) -> (T) ((Object) wrapper.readVarInt());
-        } else {
-            return (PacketWrapper<?> wrapper) -> (T) ((Object) wrapper.readInt());
-        }
-    }
-
-    private static <T> BiConsumer<PacketWrapper<?>, T> writeIntSerializer() {
-        return (PacketWrapper<?> wrapper, T value) -> {
-            int output = 0;
-            if (value instanceof Byte) {
-                output = ((Byte) value).intValue();
-            } else if (value instanceof Short) {
-                output = ((Short) value).intValue();
-            } else if (value instanceof Integer) {
-                output = (Integer) value;
-            } else if (value instanceof Long) {
-                output = ((Long) value).intValue();
-            }
-            if (PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_1_9)) {
-                wrapper.writeVarInt(output);
-            } else {
-                wrapper.writeInt(output);
-            }
-        };
+        return LEGACY_ENTRIES;
     }
 
     @Deprecated
-    private static Function<PacketWrapper<?>, Optional<String>> readOptionalComponentJSONDeserializer() {
-        return (PacketWrapper<?> wrapper) -> {
-            if (wrapper.readBoolean()) {
-                return Optional.of(wrapper.readComponentJSON());
-            } else {
-                return Optional.empty();
-            }
-        };
+    public static @Nullable EntityDataType<?> getById(ClientVersion version, int id) {
+        IEntityDataType<?> type = REGISTRY.getById(version, id);
+        return type == null ? null : type.asLegacy();
     }
 
     @Deprecated
-    private static BiConsumer<PacketWrapper<?>, Optional<String>> writeOptionalComponentJSONSerializer() {
-        return (PacketWrapper<?> wrapper, Optional<String> value) -> {
-            if (value != null && value.isPresent()) {
-                wrapper.writeBoolean(true);
-                wrapper.writeComponentJSON(value.get());
-            } else {
-                wrapper.writeBoolean(false);
-            }
-        };
+    public static @Nullable EntityDataType<?> getByName(String name) {
+        IEntityDataType<?> type = REGISTRY.getByName(name);
+        return type == null ? null : type.asLegacy();
     }
 
-    private static Function<PacketWrapper<?>, Optional<Component>> readOptionalComponentDeserializer() {
-        return (PacketWrapper<?> wrapper) -> {
-            if (wrapper.readBoolean()) {
-                return Optional.of(wrapper.readComponent());
-            } else {
-                return Optional.empty();
-            }
-        };
+    private static <T> IEntityDataType<T> define(
+            String name, PacketWrapper.Reader<T> reader, PacketWrapper.Writer<T> writer) {
+        return REGISTRY.define(name, data ->
+                new EntityDataTypeImpl<>(data, reader, writer));
     }
 
-    private static BiConsumer<PacketWrapper<?>, Optional<Component>> writeOptionalComponentSerializer() {
-        return (PacketWrapper<?> wrapper, Optional<Component> value) -> {
-            if (value != null && value.isPresent()) {
-                wrapper.writeBoolean(true);
-                wrapper.writeComponent(value.get());
-            } else {
-                wrapper.writeBoolean(false);
-            }
-        };
+    private static int readVersionedVarInt(PacketWrapper<?> wrapper) {
+        if (wrapper.getServerVersion().isNewerThanOrEquals(ServerVersion.V_1_9)) {
+            return wrapper.readVarInt();
+        }
+        return wrapper.readInt();
     }
 
-    private static <T> Function<PacketWrapper<?>, T> readOptionalBlockPositionDeserializer() {
-        if (PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_1_9)) {
-            return (PacketWrapper<?> wrapper) -> {
-                if (wrapper.readBoolean()) {
-                    return (T) Optional.of(wrapper.readBlockPosition());
-                } else {
-                    return (T) Optional.empty();
-                }
-            };
+    private static void writeVersionedVarInt(PacketWrapper<?> wrapper, Number number) {
+        if (wrapper.getServerVersion().isNewerThanOrEquals(ServerVersion.V_1_9)) {
+            wrapper.writeVarInt(number.intValue());
         } else {
-            return (PacketWrapper<?> wrapper) -> {
-                if (wrapper.readBoolean()) {
-                    int x = wrapper.readInt();
-                    int y = wrapper.readInt();
-                    int z = wrapper.readInt();
-                    return (T) Optional.of(new Vector3i(x, y, z));
-                } else {
-                    return (T) Optional.empty();
-                }
-            };
+            wrapper.writeInt(number.intValue());
         }
     }
 
-    private static <T> BiConsumer<PacketWrapper<?>, T> writeOptionalBlockPositionSerializer() {
-        if (PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_1_9)) {
-            return (PacketWrapper<?> wrapper, T value) -> {
-                if (value instanceof Optional) {
-                    Optional<?> optional = (Optional<?>) value;
-                    if (optional.isPresent()) {
-                        wrapper.writeBoolean(true);
-                        wrapper.writeBlockPosition((Vector3i) optional.get());
-                    } else {
-                        wrapper.writeBoolean(false);
-                    }
-                } else {
-                    wrapper.writeBoolean(false);
-                }
-            };
+    @Deprecated
+    private static Optional<String> readOptionalComponentJson(PacketWrapper<?> wrapper) {
+        if (wrapper.readBoolean()) {
+            return Optional.of(wrapper.readComponentJSON());
         } else {
-            return (PacketWrapper<?> wrapper, T value) -> {
-                if (value instanceof Optional) {
-                    Optional<?> optional = (Optional<?>) value;
-                    if (optional.isPresent()) {
-                        wrapper.writeBoolean(true);
-                        Vector3i position = (Vector3i) optional.get();
-                        wrapper.writeInt(position.getX());
-                        wrapper.writeInt(position.getY());
-                        wrapper.writeInt(position.getZ());
-                    } else {
-                        wrapper.writeBoolean(false);
-                    }
-                } else {
-                    wrapper.writeBoolean(false);
-                }
-            };
+            return Optional.empty();
+        }
+    }
+
+    @Deprecated
+    private static void writeOptionalComponentJson(PacketWrapper<?> wrapper, Optional<String> componentJson) {
+        if (componentJson != null && componentJson.isPresent()) {
+            wrapper.writeBoolean(true);
+            wrapper.writeComponentJSON(componentJson.get());
+        } else {
+            wrapper.writeBoolean(false);
+        }
+    }
+
+    private static Optional<Component> readOptionalComponent(PacketWrapper<?> wrapper) {
+        if (wrapper.readBoolean()) {
+            return Optional.of(wrapper.readComponent());
+        }
+        return Optional.empty();
+    }
+
+    private static void writeOptionalComponent(PacketWrapper<?> wrapper, Optional<Component> component) {
+        if (component != null && component.isPresent()) {
+            wrapper.writeBoolean(true);
+            wrapper.writeComponent(component.get());
+        } else {
+            wrapper.writeBoolean(false);
+        }
+    }
+
+    private static Vector3i readVersionedBlockPosition(PacketWrapper<?> wrapper) {
+        if (wrapper.getServerVersion().isNewerThanOrEquals(ServerVersion.V_1_9)) {
+            return wrapper.readBlockPosition();
+        } else {
+            return new Vector3i(wrapper.readInt(), wrapper.readInt(), wrapper.readInt());
+        }
+    }
+
+    private static void writeVersionedBlockPosition(PacketWrapper<?> wrapper, Vector3i vector) {
+        if (wrapper.getServerVersion().isNewerThanOrEquals(ServerVersion.V_1_9)) {
+            wrapper.writeBlockPosition(vector);
+        } else {
+            wrapper.writeInt(vector.x);
+            wrapper.writeInt(vector.y);
+            wrapper.writeInt(vector.z);
+        }
+    }
+
+    private static Optional<Vector3i> readOptionalVersionedBlockPosition(PacketWrapper<?> wrapper) {
+        if (!wrapper.readBoolean()) {
+            return Optional.empty();
+        }
+        return Optional.of(readVersionedBlockPosition(wrapper));
+    }
+
+    private static void writeOptionalVersionedBlockPosition(PacketWrapper<?> wrapper, Optional<Vector3i> value) {
+        if (value == null || !value.isPresent()) {
+            wrapper.writeBoolean(false);
+        } else {
+            wrapper.writeBoolean(true);
+            writeVersionedBlockPosition(wrapper, value.get());
         }
     }
 
     static {
-        TYPES_BUILDER.unloadFileMappings();
+        REGISTRY.unloadMappings();
     }
-
 }
