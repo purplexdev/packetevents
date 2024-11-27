@@ -49,6 +49,8 @@ public interface ByteBufOperator {
     Object getBytes(Object buffer, int index, byte[] destination);
     short getUnsignedByte(Object buffer, int index);
 
+    int getIntLE(Object buffer, int readerIndex);
+
     boolean isReadable(Object buffer);
     Object copy(Object buffer);
     Object duplicate(Object buffer);

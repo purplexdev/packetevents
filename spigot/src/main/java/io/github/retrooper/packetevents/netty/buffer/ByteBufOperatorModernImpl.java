@@ -99,6 +99,11 @@ public class ByteBufOperatorModernImpl implements ByteBufOperator {
         return ((ByteBuf)buffer).readLong();
     }
 
+    @Override
+    public int getIntLE(Object buffer, int readerIndex) {
+        return ((ByteBuf) buffer).getIntLE(readerIndex);
+    }
+
 
     @Override
     public void writeByte(Object buffer, int value) {

@@ -100,6 +100,11 @@ public class ByteBufOperatorImpl implements ByteBufOperator {
     }
 
     @Override
+    public int getIntLE(Object buffer, int readerIndex) {
+        return ((ByteBuf) buffer).getIntLE(readerIndex);
+    }
+
+    @Override
     public void writeByte(Object buffer, int value) {
         ((ByteBuf)buffer).writeByte(value);
     }
