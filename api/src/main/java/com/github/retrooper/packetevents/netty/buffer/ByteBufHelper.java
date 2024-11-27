@@ -244,6 +244,7 @@ public class ByteBufHelper {
         return PacketEvents.getAPI().getNettyManager().getByteBufOperator().getIntLE(buffer, readerIndex);
     }
 
+    //Src: https://github.com/jonesdevelopment/sonar/blob/main/common/src/main/java/xyz/jonesdev/sonar/common/fallback/netty/FallbackVarInt21FrameDecoder.java#L69
     public static int readVarInt(Object buf) {
         if (readableBytes(buf) < 4) return readVarIntSmallBuffer(buf);
 
@@ -292,6 +293,7 @@ public class ByteBufHelper {
         return result | (tmp & 0x7F) << 14;
     }
 
+    //Src: https://steinborn.me/posts/performance/how-fast-can-you-write-a-varint/
     public static void writeVarInt(Object buf, int i) {
         if ((i & (0xFFFFFFFF << 7)) == 0) {
             // 1 byte case
