@@ -244,53 +244,8 @@ public class ByteBufHelper {
         return PacketEvents.getAPI().getNettyManager().getByteBufOperator().getIntLE(buffer, readerIndex);
     }
 
-    //Src: https://github.com/jonesdevelopment/sonar/blob/main/common/src/main/java/xyz/jonesdev/sonar/common/fallback/netty/FallbackVarInt21FrameDecoder.java#L69
     public static int readVarInt(Object buf) {
-        if (readableBytes(buf) < 4) return readVarIntSmallBuffer(buf);
-
-        // take the last three bytes and check if any of them have the high bit set
-        int wholeOrMore = getIntLE(buf, readerIndex(buf));
-        int atStop = ~wholeOrMore & 0x808080;
-        if (atStop == 0) throw new RuntimeException("fucked up - VarInt too big");
-
-        final int bitsToKeep = Integer.numberOfTrailingZeros(atStop) + 1;
-        skipBytes(buf, bitsToKeep >> 3);
-
-        // https://github.com/netty/netty/pull/14050#issuecomment-2107750734
-        int preservedBytes = wholeOrMore & (atStop ^ (atStop - 1));
-
-        // https://github.com/netty/netty/pull/14050#discussion_r1597896639
-        preservedBytes = (preservedBytes & 0x007F007F) | ((preservedBytes & 0x00007F00) >> 1);
-        preservedBytes = (preservedBytes & 0x00003FFF) | ((preservedBytes & 0x3FFF0000) >> 2);
-        return preservedBytes;
-    }
-
-    //fallback to unrolled loop
-    //I'll try to optimize this in the future
-    private static int readVarIntSmallBuffer(Object buf) {
-        if (!isReadable(buf)) return 0;
-
-        int rIdx = readerIndex(buf);
-
-        byte tmp = readByte(buf);
-        if (tmp >= 0) return tmp;
-
-        int result = tmp & 0x7F;
-        if (!isReadable(buf)) {
-            readerIndex(buf, rIdx);
-            return 0;
-        }
-
-        if ((tmp = readByte(buf)) >= 0) return result | tmp << 7;
-
-        result |= (tmp & 0x7F) << 7;
-        if (!isReadable(buf)) {
-            readerIndex(buf, rIdx);
-            return 0;
-        }
-        if ((tmp = readByte(buf)) >= 0) return result | tmp << 14;
-
-        return result | (tmp & 0x7F) << 14;
+        return PacketEvents.getAPI().getNettyManager().getByteBufOperator().readVarInt(buf);
     }
 
     //Src: https://steinborn.me/posts/performance/how-fast-can-you-write-a-varint/
