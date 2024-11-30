@@ -26,7 +26,10 @@ import com.github.retrooper.packetevents.wrapper.PacketWrapper;
 
 public class WrapperPlayServerEntityVelocity extends PacketWrapper<WrapperPlayServerEntityVelocity> {
     private int entityID;
-    private Vector3d velocity;
+    private int rawX;
+    private int rawY;
+    private int rawZ;
+    private Vector3d cachedVelocity;
 
     public WrapperPlayServerEntityVelocity(PacketSendEvent event) {
         super(event);
@@ -35,7 +38,8 @@ public class WrapperPlayServerEntityVelocity extends PacketWrapper<WrapperPlaySe
     public WrapperPlayServerEntityVelocity(int entityID, Vector3d velocity) {
         super(PacketType.Play.Server.ENTITY_VELOCITY);
         this.entityID = entityID;
-        this.velocity = velocity;
+        this.cachedVelocity = velocity;
+        this.updateRawValues();
     }
 
     @Override
@@ -45,10 +49,15 @@ public class WrapperPlayServerEntityVelocity extends PacketWrapper<WrapperPlaySe
         } else {
             entityID = readVarInt();
         }
-        double velX = (double) readShort() / 8000.0;
-        double velY = (double) readShort() / 8000.0;
-        double velZ = (double) readShort() / 8000.0;
-        velocity = new Vector3d(velX, velY, velZ);
+
+        this.rawX = readShort();
+        this.rawY = readShort();
+        this.rawZ = readShort();
+
+        double velX = (double) this.rawX / 8000.0;
+        double velY = (double) this.rawY / 8000.0;
+        double velZ = (double) this.rawZ / 8000.0;
+        this.cachedVelocity = new Vector3d(velX, velY, velZ);
     }
 
     @Override
@@ -58,15 +67,24 @@ public class WrapperPlayServerEntityVelocity extends PacketWrapper<WrapperPlaySe
         } else {
             writeVarInt(entityID);
         }
-        writeShort((int) (velocity.x * 8000.0));
-        writeShort((int) (velocity.y * 8000.0));
-        writeShort((int) (velocity.z * 8000.0));
+
+        writeShort(rawX);
+        writeShort(rawY);
+        writeShort(rawZ);
     }
 
     @Override
     public void copy(WrapperPlayServerEntityVelocity wrapper) {
         entityID = wrapper.entityID;
-        velocity = wrapper.velocity;
+        rawX = wrapper.rawX;
+        rawY = wrapper.rawY;
+        rawZ = wrapper.rawZ;
+    }
+
+    private void updateRawValues() {
+        this.rawX = (int) (cachedVelocity.x * 8000.0);
+        this.rawY = (int) (cachedVelocity.y * 8000.0);
+        this.rawZ = (int) (cachedVelocity.z * 8000.0);
     }
 
     public int getEntityId() {
@@ -78,10 +96,11 @@ public class WrapperPlayServerEntityVelocity extends PacketWrapper<WrapperPlaySe
     }
 
     public Vector3d getVelocity() {
-        return velocity;
+        return cachedVelocity;
     }
 
     public void setVelocity(Vector3d velocity) {
-        this.velocity = velocity;
+        this.cachedVelocity = velocity;
+        this.updateRawValues();
     }
 }
