@@ -72,7 +72,7 @@ public class WrapperPlayClientClickWindow extends PacketWrapper<WrapperPlayClien
             this.actionNumber = Optional.empty();
         }
         int clickTypeIndex = readVarInt();
-        this.windowClickType = WindowClickType.VALUES[clickTypeIndex];
+        this.windowClickType = WindowClickType.getById(clickTypeIndex);
         if (v1_17) {
             this.slots = Optional.of(readMap(
                     packetWrapper -> Math.toIntExact(packetWrapper.readShort()),
@@ -180,8 +180,17 @@ public class WrapperPlayClientClickWindow extends PacketWrapper<WrapperPlayClien
     }
 
     public enum WindowClickType {
-        PICKUP, QUICK_MOVE, SWAP, CLONE, THROW, QUICK_CRAFT, PICKUP_ALL;
+        PICKUP, QUICK_MOVE, SWAP, CLONE, THROW, QUICK_CRAFT, PICKUP_ALL, UNKNOWN;
 
         public static final WindowClickType[] VALUES = values();
+
+        public static WindowClickType getById(int id) {
+            // We subtract by 1 as unknown is not a valid choice.
+            if (id < 0 || id >= (VALUES.length - 1)) {
+                return UNKNOWN;
+            }
+
+            return VALUES[id];
+        }
     }
 }
