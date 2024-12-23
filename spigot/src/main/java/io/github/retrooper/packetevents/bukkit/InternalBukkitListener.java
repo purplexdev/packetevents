@@ -46,6 +46,7 @@ public class InternalBukkitListener implements Listener {
     // finished logging in and has a channel reference set, for 1.20.2+
     @EventHandler(priority = EventPriority.LOWEST)
     public void onLogin(PlayerSpawnLocationEvent event) {
+        System.out.println("First factual: " + event.getPlayer().getName());
         if (PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_1_20_2)) {
             this.onLogin(event.getPlayer());
         }
@@ -56,12 +57,14 @@ public class InternalBukkitListener implements Listener {
     // (and according to tests this doesn't really happen much in versions older than 1.20.2)
     @EventHandler(priority = EventPriority.HIGH)
     public void onJoin(PlayerJoinEvent event) {
+        System.out.println("Second factual: " + event.getPlayer().getName());
         if (PacketEvents.getAPI().getServerManager().getVersion().isOlderThan(ServerVersion.V_1_20_2)) {
             this.onLogin(event.getPlayer());
         }
     }
 
     private void onLogin(Player player) {
+        System.out.println("PLAYER LOGGED ON: " + player.getName());
         SpigotChannelInjector injector = (SpigotChannelInjector) PacketEvents.getAPI().getInjector();
 
         User user = PacketEvents.getAPI().getPlayerManager().getUser(player);
@@ -71,9 +74,9 @@ public class InternalBukkitListener implements Listener {
             //Check if it is a fake connection...
             if (channel == null || !FakeChannelUtil.isFakeChannel(channel) && (!PacketEvents.getAPI().isTerminated() || PacketEvents.getAPI().getSettings().isKickIfTerminated())) {
                 //Kick them, if they are not a fake player.
-                FoliaScheduler.getRegionScheduler().runDelayed(plugin, player.getLocation(), (o) -> {
+                FoliaScheduler.getEntityScheduler().runDelayed(player, plugin, (o) -> {
                     player.kickPlayer("PacketEvents 2.0 failed to inject");
-                }, 0);
+                }, null, 0);
             }
             return;
         }
