@@ -31,24 +31,14 @@ import io.netty.channel.ChannelOutboundHandlerAdapter;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.EncoderException;
-import io.netty.util.Recycler;
-import io.netty.util.concurrent.PromiseCombiner;
 import net.md_5.bungee.api.connection.ProxiedPlayer;
+import org.jetbrains.annotations.Nullable;
 
 import java.lang.reflect.InvocationTargetException;
-import java.util.ArrayList;
-import java.util.List;
 
 // Thanks to ViaVersion for the compression method.
 @ChannelHandler.Sharable
 public class PacketEventsEncoder extends ChannelOutboundHandlerAdapter {
-
-    private static final Recycler<OutList> OUT_LIST_RECYCLER = new Recycler<OutList>() {
-        @Override
-        protected OutList newObject(Handle<OutList> handle) {
-            return new OutList(handle);
-        }
-    };
 
     private final PacketSide side = PacketSide.SERVER;
     public ProxiedPlayer player;
@@ -60,7 +50,9 @@ public class PacketEventsEncoder extends ChannelOutboundHandlerAdapter {
     }
 
     public void handle(ChannelHandlerContext ctx, ByteBuf in, ChannelPromise promise) throws Exception {
-        boolean doCompression = this.handleCompressionOrder(ctx, in);
+        ByteBuf decompressed = this.handleCompressionOrder(ctx, in.retain());
+        if (decompressed != null) in = decompressed;
+
         ProtocolPacketEvent event = PacketEventsImplHelper.handlePacket(ctx.channel(),
                 this.user, this.player, in.retain(), false, this.side);
         ByteBuf buf = event != null ? (ByteBuf) event.getByteBuf() : in;
@@ -72,7 +64,7 @@ public class PacketEventsEncoder extends ChannelOutboundHandlerAdapter {
             return;
         }
 
-        if (doCompression) {
+        if (decompressed != null) {
             this.recompress(ctx, buf, promise);
         } else {
             ctx.write(buf, promise);
@@ -99,79 +91,42 @@ public class PacketEventsEncoder extends ChannelOutboundHandlerAdapter {
         }
     }
 
-    private boolean handleCompressionOrder(ChannelHandlerContext ctx, ByteBuf buffer) {
+    private @Nullable ByteBuf handleCompressionOrder(ChannelHandlerContext ctx, ByteBuf buffer) {
         ChannelPipeline pipe = ctx.pipeline();
-        if (handledCompression) {
-            return false;
+        if (this.handledCompression) {
+            return null;
         }
         int encoderIndex = pipe.names().indexOf("compress");
         if (encoderIndex == -1) {
-            return false;
+            return null;
         }
         if (encoderIndex > pipe.names().indexOf(PacketEvents.ENCODER_NAME)) {
             // Need to decompress this packet due to bad order
             ChannelHandler decompressor = pipe.get("decompress");
             try {
-                ByteBuf decompressed = (ByteBuf) CustomPipelineUtil.callPacketDecodeByteBuf(decompressor, ctx, buffer).get(0);
-                if (buffer != decompressed) {
-                    try {
-                        buffer.clear().writeBytes(decompressed);
-                    } finally {
-                        decompressed.release();
-                    }
-                }
+                ByteBuf out = CustomPipelineUtil.callPacketDecodeByteBuf(decompressor, ctx, buffer.retain());
                 //Relocate handlers
                 PacketEventsDecoder decoder = (PacketEventsDecoder) pipe.remove(PacketEvents.DECODER_NAME);
                 PacketEventsEncoder encoder = (PacketEventsEncoder) pipe.remove(PacketEvents.ENCODER_NAME);
                 pipe.addAfter("decompress", PacketEvents.DECODER_NAME, decoder);
                 pipe.addAfter("compress", PacketEvents.ENCODER_NAME, encoder);
-                //System.out.println("Pipe: " + ChannelHelper.pipelineHandlerNamesAsString(ctx.channel()));
-                handledCompression = true;
-                return true;
-            } catch (InvocationTargetException e) {
-                e.printStackTrace();
+                this.handledCompression = true;
+                return out;
+            } catch (InvocationTargetException exception) {
+                throw new EncoderException("Error while decompressing bytebuf: " + exception, exception);
+            } finally {
+                buffer.release();
             }
         }
-        return false;
+        return null;
     }
 
     private void recompress(ChannelHandlerContext ctx, ByteBuf buffer, ChannelPromise promise) {
-        OutList outWrapper = OUT_LIST_RECYCLER.get();
-        List<Object> out = outWrapper.list;
         try {
             ChannelHandler compressor = ctx.pipeline().get("compress");
-            CustomPipelineUtil.callPacketEncodeByteBuf(compressor, ctx, buffer, out);
-
-            int len = out.size();
-            if (len == 1) {
-                // should be the only case which
-                // happens on vanilla bungeecord
-                ctx.write(out.get(0), promise);
-            } else {
-                // copied from MessageToMessageEncoder#writePromiseCombiner
-                PromiseCombiner combiner = new PromiseCombiner(ctx.executor());
-                for (int i = 0; i < len; i++) {
-                    combiner.add(ctx.write(out.get(i)));
-                }
-                combiner.finish(promise);
-            }
+            CustomPipelineUtil.callPacketEncodeByteBuf(compressor, ctx, buffer, promise);
         } catch (InvocationTargetException exception) {
-            throw new EncoderException("Error while recompressing bytebuf " + buffer.readableBytes(), exception);
-        } finally {
-            out.clear();
-            outWrapper.handle.recycle(outWrapper);
-            buffer.release();
-        }
-    }
-
-    private static final class OutList {
-
-        // the default bungee compressor only produces one output bytebuf
-        private final List<Object> list = new ArrayList<>(1);
-        private final Recycler.Handle<OutList> handle;
-
-        public OutList(Recycler.Handle<OutList> handle) {
-            this.handle = handle;
+            throw new EncoderException("Error while recompressing bytebuf " + exception, exception);
         }
     }
 }
