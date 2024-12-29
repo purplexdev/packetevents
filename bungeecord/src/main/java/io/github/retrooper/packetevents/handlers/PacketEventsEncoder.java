@@ -19,10 +19,10 @@
 package io.github.retrooper.packetevents.handlers;
 
 import com.github.retrooper.packetevents.PacketEvents;
-import com.github.retrooper.packetevents.event.PacketSendEvent;
-import com.github.retrooper.packetevents.netty.buffer.ByteBufHelper;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
+import com.github.retrooper.packetevents.protocol.PacketSide;
 import com.github.retrooper.packetevents.protocol.player.User;
-import com.github.retrooper.packetevents.util.EventCreationUtil;
+import com.github.retrooper.packetevents.util.PacketEventsImplHelper;
 import io.github.retrooper.packetevents.injector.CustomPipelineUtil;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandler;
@@ -32,7 +32,6 @@ import io.netty.channel.ChannelPipeline;
 import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.EncoderException;
 import io.netty.util.Recycler;
-import io.netty.util.ReferenceCountUtil;
 import io.netty.util.concurrent.PromiseCombiner;
 import net.md_5.bungee.api.connection.ProxiedPlayer;
 
@@ -51,6 +50,7 @@ public class PacketEventsEncoder extends ChannelOutboundHandlerAdapter {
         }
     };
 
+    private final PacketSide side = PacketSide.SERVER;
     public ProxiedPlayer player;
     public User user;
     public boolean handledCompression;
@@ -59,47 +59,43 @@ public class PacketEventsEncoder extends ChannelOutboundHandlerAdapter {
         this.user = user;
     }
 
-    public void read(ChannelHandlerContext ctx, ByteBuf buffer, ChannelPromise promise) throws Exception {
-        boolean doCompression = handleCompressionOrder(ctx, buffer);
-        int firstReaderIndex = buffer.readerIndex();
-        PacketSendEvent packetSendEvent = EventCreationUtil.createSendEvent(ctx.channel(), user, player,
-                buffer, false);
-        int readerIndex = buffer.readerIndex();
-        PacketEvents.getAPI().getEventManager().callEvent(packetSendEvent, () -> buffer.readerIndex(readerIndex));
-        if (!packetSendEvent.isCancelled()) {
-            if (packetSendEvent.getLastUsedWrapper() != null) {
-                ByteBufHelper.clear(packetSendEvent.getByteBuf());
-                packetSendEvent.getLastUsedWrapper().writeVarInt(packetSendEvent.getPacketId());
-                packetSendEvent.getLastUsedWrapper().write();
-            } else {
-                buffer.readerIndex(firstReaderIndex);
-            }
-            if (doCompression) {
-                this.recompress(ctx, buffer, promise);
-            } else {
-                ctx.write(buffer, promise);
-            }
-        } else {
-            ReferenceCountUtil.release(packetSendEvent.getByteBuf());
+    public void handle(ChannelHandlerContext ctx, ByteBuf in, ChannelPromise promise) throws Exception {
+        boolean doCompression = this.handleCompressionOrder(ctx, in);
+        ProtocolPacketEvent event = PacketEventsImplHelper.handlePacket(ctx.channel(),
+                this.user, this.player, in.retain(), false, this.side);
+        ByteBuf buf = event != null ? (ByteBuf) event.getByteBuf() : in;
+
+        if (!buf.isReadable()) {
+            // cancelled, stop it
+            buf.release();
+            promise.setSuccess(); // mark as done
+            return;
         }
-        if (packetSendEvent.hasPostTasks()) {
-            for (Runnable task : packetSendEvent.getPostTasks()) {
-                task.run();
-            }
+
+        if (doCompression) {
+            this.recompress(ctx, buf, promise);
+        } else {
+            ctx.write(buf, promise);
         }
     }
 
     @Override
     public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
         if (!(msg instanceof ByteBuf)) {
-            super.write(ctx, msg, promise);
+            ctx.write(msg, promise);
             return;
         }
-        ByteBuf buf = (ByteBuf) msg;
-        if (!buf.isReadable()) {
-            buf.release();
-        } else {
-            this.read(ctx, buf, promise);
+        ByteBuf in = (ByteBuf) msg;
+        if (!in.isReadable()) {
+            in.release();
+            promise.setSuccess(); // mark as done
+            return;
+        }
+
+        try {
+            this.handle(ctx, in, promise);
+        } finally {
+            in.release();
         }
     }
 
