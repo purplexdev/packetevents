@@ -63,8 +63,9 @@ public final class PacketEventsImplHelper {
             // enough capacity found, simply clear the existing buffer
             ByteBufHelper.clear(buf);
         } else {
-            // slower version, create a completely new bytebuf FIXME test if refcount behaves like expected
+            // slower version, create a completely new bytebuf
             event.setByteBuf(ByteBufHelper.newBuffer(buf, ByteBufHelper.readerIndex(buf)));
+            lastWrapper.buffer = event.getByteBuf();
             ByteBufHelper.release(buf);
         }
 
