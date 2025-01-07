@@ -1161,7 +1161,7 @@ public class StateTypes {
     // 1.21.2 added types
     public static StateType PALE_OAK_WOOD = StateTypes.builder().name("PALE_OAK_WOOD").blastResistance(2.0f).hardness(2.0f).isBlocking(true).requiresCorrectTool(false).isSolid(true).setMaterial(MaterialType.WOOD).build();
     public static StateType PALE_OAK_PLANKS = StateTypes.builder().name("PALE_OAK_PLANKS").blastResistance(3.0f).hardness(2.0f).isBlocking(true).requiresCorrectTool(false).isSolid(true).setMaterial(MaterialType.WOOD).build();
-    public static StateType PALE_OAK_SAPLING = StateTypes.builder().name("PALE_OAK_SAPLING").blastResistance(0.0f).hardness(0.0f).isBlocking(false).requiresCorrectTool(false).isSolid(false).setMaterial(MaterialType.WOOD).build();
+    public static StateType PALE_OAK_SAPLING = StateTypes.builder().name("PALE_OAK_SAPLING").blastResistance(0.0f).hardness(0.0f).isBlocking(false).requiresCorrectTool(false).isSolid(false).setMaterial(MaterialType.PLANT).build();
     public static StateType PALE_OAK_LOG = StateTypes.builder().name("PALE_OAK_LOG").blastResistance(2.0f).hardness(2.0f).isBlocking(true).requiresCorrectTool(false).isSolid(true).setMaterial(MaterialType.WOOD).build();
     public static StateType STRIPPED_PALE_OAK_LOG = StateTypes.builder().name("STRIPPED_PALE_OAK_LOG").blastResistance(2.0f).hardness(2.0f).isBlocking(true).requiresCorrectTool(false).isSolid(true).setMaterial(MaterialType.WOOD).build();
     public static StateType STRIPPED_PALE_OAK_WOOD = StateTypes.builder().name("STRIPPED_PALE_OAK_WOOD").blastResistance(2.0f).hardness(2.0f).isBlocking(true).requiresCorrectTool(false).isSolid(true).setMaterial(MaterialType.WOOD).build();
