@@ -21,7 +21,7 @@ import java.util.Locale;
 public final class StateTypesGenerator {
 
     public static void generateStateTypesString() throws Exception {
-        System.out.println("Generating state types string:");
+        System.out.println("Generating state types...");
         for (Block block : BuiltInRegistries.BLOCK) {
             ResourceLocation blockLocation = BuiltInRegistries.BLOCK.getKey(block);
 
