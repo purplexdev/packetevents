@@ -331,10 +331,8 @@ public class AdventureNBTSerializer implements ComponentSerializer<Component, Co
             if (color != null) style.color(color);
         });
         if (BackwardCompatUtil.IS_4_18_0_OR_NEWER) {
-            reader.useUTF("shadow_color", value -> {
-                ShadowColor color = ShadowColor.fromHexString(value);
-                if (color != null) style.shadowColor(color);
-            });
+            reader.useNumber("shadow_color", num ->
+                    style.shadowColor(ShadowColor.shadowColor(num.intValue())));
         }
 
         for (String decorationKey : TextDecoration.NAMES.keys()) {
@@ -413,7 +411,7 @@ public class AdventureNBTSerializer implements ComponentSerializer<Component, Co
 
         if (BackwardCompatUtil.IS_4_18_0_OR_NEWER) {
             ShadowColor shadowColor = style.shadowColor();
-            if (shadowColor != null) writer.writeUTF("shadow_color", shadowColor.asHexString());
+            if (shadowColor != null) writer.writeInt("shadow_color", shadowColor.value());
         }
 
         for (TextDecoration decoration : TextDecoration.NAMES.values()) {
