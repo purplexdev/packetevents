@@ -1194,8 +1194,8 @@ public class StateTypes {
     public static StateType CHISELED_RESIN_BRICKS = StateTypes.builder().name("CHISELED_RESIN_BRICKS").blastResistance(6.0f).hardness(1.5f).isBlocking(true).requiresCorrectTool(true).isSolid(true).setMaterial(MaterialType.RESIN).build();
     public static StateType OPEN_EYEBLOSSOM = StateTypes.builder().name("OPEN_EYEBLOSSOM").blastResistance(0.0f).hardness(0.0f).isBlocking(false).requiresCorrectTool(false).isSolid(false).setMaterial(MaterialType.PLANT).build();
     public static StateType CLOSED_EYEBLOSSOM = StateTypes.builder().name("CLOSED_EYEBLOSSOM").blastResistance(0.0f).hardness(0.0f).isBlocking(false).requiresCorrectTool(false).isSolid(false).setMaterial(MaterialType.PLANT).build();
-    public static StateType POTTED_OPEN_EYEBLOSSOM = StateTypes.builder().name("POTTED_OPEN_EYEBLOSSOM").blastResistance(0.0f).hardness(0.0f).isBlocking(true).requiresCorrectTool(false).isSolid(false).setMaterial(MaterialType.DECORATION).build();
-    public static StateType POTTED_CLOSED_EYEBLOSSOM = StateTypes.builder().name("POTTED_CLOSED_EYEBLOSSOM").blastResistance(0.0f).hardness(0.0f).isBlocking(true).requiresCorrectTool(false).isSolid(false).setMaterial(MaterialType.DECORATION).build();
+    public static StateType POTTED_OPEN_EYEBLOSSOM = StateTypes.builder().name("POTTED_OPEN_EYEBLOSSOM").blastResistance(0.0f).hardness(0.0f).isBlocking(false).requiresCorrectTool(false).isSolid(true).setMaterial(MaterialType.DECORATION).build();
+    public static StateType POTTED_CLOSED_EYEBLOSSOM = StateTypes.builder().name("POTTED_CLOSED_EYEBLOSSOM").blastResistance(0.0f).hardness(0.0f).isBlocking(false).requiresCorrectTool(false).isSolid(true).setMaterial(MaterialType.DECORATION).build();
 
     static {
         TYPES_BUILDER.unloadFileMappings();
